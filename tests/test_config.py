@@ -7,7 +7,13 @@ from unittest.mock import patch
 
 def test_settings_loads_from_env():
     """Test that settings loads from environment variables."""
-    with patch.dict(os.environ, {"ASK_API_KEY": "ask_live_test123456789012345678901234"}):
+    # Clear any polluted env vars, then set only what we want
+    env = {
+        "ASK_API_KEY": "ask_live_test123456789012345678901234",
+    }
+    # Remove ASK_API_BASE_URL if set by other tests
+    with patch.dict(os.environ, env, clear=False):
+        os.environ.pop("ASK_API_BASE_URL", None)
         from askbase_mcp.config import Settings
         settings = Settings()
         assert settings.api_key == "ask_live_test123456789012345678901234"
