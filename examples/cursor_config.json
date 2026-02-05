@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "askbase": {
+      "command": "uvx",
+      "args": ["askbase-mcp"],
+      "env": {
+        "ASK_API_KEY": "ask_live_your_api_key_here",
+        "ASK_API_BASE_URL": "https://api.askbase.com"
+      }
+    }
+  }
+}
