@@ -73,8 +73,10 @@ class ASKClient:
                 "query": query,
                 "collection_ids": collection_ids,
                 "top_k": top_k or self.settings.default_top_k,
+                # `is not None`: 0.0 is a valid threshold, not "unset".
                 "similarity_threshold": similarity_threshold
-                or self.settings.default_similarity_threshold,
+                if similarity_threshold is not None
+                else self.settings.default_similarity_threshold,
                 "include_content": include_content,
             },
         )
