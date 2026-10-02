@@ -25,6 +25,10 @@ Run `/askbase:setup` to check the connection and add your first content.
 | `/askbase:answer` | Answers from your knowledge base with cited documents, and says when it isn't covered. |
 | `/askbase:add-content` | Adds a web page, a website section or text to the right collection, then checks it's searchable. |
 | `/askbase:kb-health` | Reports empty collections, failed or thin documents, and gaps found by test questions. |
+| `/askbase:fill-gaps` | Turns questions customers asked that the assistant couldn't answer into drafted content for you to approve. |
+| `/askbase:customer-briefing` | One-page briefing on a customer: profile, what the assistant remembers, open promises, recent conversations. |
+| `/askbase:open-items` | What you promised customers and what's overdue, across all contacts; closes items you confirm. |
+| `/askbase:test-assistant` | Runs a question set through the live assistant, grades answers against the knowledge base, reports problems. |
 
 Claude also uses these skills on its own when your request matches, e.g. "what do our docs say about refunds?".
 
@@ -35,8 +39,14 @@ Claude also uses these skills on its own when your request matches, e.g. "what d
 | any valid key | search, listing collections and documents, ingesting pages and text |
 | `write` | creating collections |
 
+Customer briefings and open items need **CRM turned on** for the project (portal → CRM settings). `test-assistant` runs the real assistant, so each question uses your model's tokens.
+
 Your key is sent only to the AskBase MCP server, as the `X-API-Key` header, and is used only for your own requests.
 
 ## Tools
 
-The MCP server provides: `search`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `create_collection`.
+The MCP server provides:
+- **Knowledge base:** `search`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `create_collection`
+- **Insights:** `list_unanswered_questions`, `get_unanswered_question`, `suggest_answer`, `list_failed_lookups`
+- **CRM:** `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item`
+- **Assistant:** `ask_assistant`

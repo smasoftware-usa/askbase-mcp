@@ -210,6 +210,71 @@ class ASKClient:
             },
         )
 
+    # Insights: what customers asked that the assistant couldn't answer
+    async def list_missing_intents(self, status: str = "open", sort: str = "hit_count", limit: int = 20) -> dict[str, Any]:
+        return await self._request("GET", "/missing-intents", params={"status": status, "sort": sort, "limit": limit})
+
+    async def get_missing_intent(self, cluster_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/missing-intents/{cluster_id}")
+
+    async def suggest_missing_intent(self, cluster_id: str) -> dict[str, Any]:
+        return await self._request("POST", f"/missing-intents/{cluster_id}/suggest")
+
+    async def list_unresolved_lookups(self, status: str = "open", limit: int = 20) -> dict[str, Any]:
+        return await self._request("GET", "/unresolved-lookups", params={"status": status, "limit": limit})
+
+    # CRM
+    async def list_contacts(self, search: Optional[str] = None, stage: Optional[str] = None, limit: int = 20) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
+        if search:
+            params["search"] = search
+        if stage:
+            params["stage"] = stage
+        return await self._request("GET", "/crm/contacts", params=params)
+
+    async def get_contact(self, contact_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/crm/contacts/{contact_id}")
+
+    async def get_contact_cerebrum(self, contact_id: str) -> list[dict[str, Any]]:
+        return await self._request("GET", f"/crm/contacts/{contact_id}/cerebrum")
+
+    async def get_contact_timeline_summaries(self, contact_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        return await self._request("GET", f"/crm/contacts/{contact_id}/timeline-summaries", params={"limit": limit})
+
+    async def get_contact_open_loops(self, contact_id: str, status: Optional[str] = "open") -> list[dict[str, Any]]:
+        params = {"status": status} if status else None
+        return await self._request("GET", f"/crm/contacts/{contact_id}/open-loops", params=params)
+
+    async def get_contact_activity(self, contact_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        return await self._request("GET", f"/crm/contacts/{contact_id}/timeline", params={"limit": limit})
+
+    async def list_open_loops(self, status: str = "open", owner: Optional[str] = None, due: Optional[str] = None,
+                              limit: int = 50) -> dict[str, Any]:
+        params: dict[str, Any] = {"status": status, "limit": limit}
+        if owner:
+            params["owner"] = owner
+        if due:
+            params["due"] = due
+        return await self._request("GET", "/crm/open-loops", params=params)
+
+    async def update_open_loop(self, contact_id: str, loop_id: str, status: str,
+                               closed_note: Optional[str] = None) -> dict[str, Any]:
+        body: dict[str, Any] = {"status": status}
+        if closed_note:
+            body["closed_note"] = closed_note
+        return await self._request("PATCH", f"/crm/contacts/{contact_id}/open-loops/{loop_id}", json=body)
+
+    # Chat (the live assistant)
+    async def chat(self, message: str, collection_ids: Optional[list[str]] = None) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "message": message,
+            # Marks the session as a test run in the portal's conversation list.
+            "context_variables": {"origin": "askbase-plugin/test-assistant"},
+        }
+        if collection_ids:
+            body["collection_ids"] = collection_ids
+        return await self._request("POST", "/chat", json=body)
+
 
 class ASKClientError(Exception):
     """Error from ASK-base API client."""
