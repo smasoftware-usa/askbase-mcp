@@ -31,6 +31,6 @@ For each **missing** topic, draft a short document: a clear title phrased the wa
 
 ## 5. Review with the user
 
-Show a table: topic, times asked, classification, proposed action. Then show each draft. Add only the ones the user approves, using `/askbase:add-content` (pasted text → `create_document`), in the collection they choose.
+Show a table: topic, times asked, classification, proposed action. Then show each draft. Add only the ones the user approves, using `/askbase:add-content` (pasted text → `create_document`), in the collection they choose. They start as drafts: publish with `publish_documents` once the user has resolved the TODOs.
 
 Close by listing the **not a content problem** items with AskBase's recommendations, for their team to handle.

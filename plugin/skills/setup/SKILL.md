@@ -32,9 +32,11 @@ Ask what to start with, and use the matching tool:
 
 Confirm the collection and the source before calling. Report how many documents were created and any that failed.
 
-## 4. Test it
+## 4. Publish and test it
 
-Ask for a question their customers would ask, or propose one from the content just added. Call `search` with it. Show the top result with its document title. If nothing relevant comes back, try one rephrasing; if still nothing, check `list_documents` for that collection and whether documents are still `processing`.
+New documents start as drafts and aren't searchable until published. When processing has finished (`list_documents` shows `completed`), ask whether to publish them, then call `publish_documents`.
+
+Ask for a question their customers would ask, or propose one from the content just added. Call `search` with it. Show the top result with its document title. If nothing relevant comes back, try one rephrasing; if still nothing, check `list_documents` for that collection: documents still `processing`, or still `draft` (not published), won't appear.
 
 ## 5. Point to what's next
 

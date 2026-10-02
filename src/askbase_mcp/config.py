@@ -40,10 +40,10 @@ class Settings(BaseSettings):
         description="Default number of search results",
     )
     default_similarity_threshold: float = Field(
-        default=0.4,
+        default=0.2,
         ge=0.0,
         le=1.0,
-        description="Default similarity threshold for search",
+        description="Default similarity threshold for search (0.2: on AskBase's embeddings, relevant passages score ~0.23-0.74 and unrelated ones below ~0.2)",
     )
 
     # Server metadata

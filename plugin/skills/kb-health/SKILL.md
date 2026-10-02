@@ -17,6 +17,7 @@ Flag:
 - **Failed documents**, with their error if `get_document` gives one.
 - **Stuck documents**: still `pending` or `processing`.
 - **Thin documents**: completed but only 1-2 chunks; often a page that failed to scrape properly. Spot-check one with `get_document_chunks`.
+- **Unpublished documents**: `draft` or `unpublished` ones are invisible to customers and search. List them; they may be forgotten reviews.
 
 ## 2. Gap check
 

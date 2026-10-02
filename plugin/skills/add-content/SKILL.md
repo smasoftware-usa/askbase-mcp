@@ -26,8 +26,17 @@ State the plan in one line, e.g. *"Add https://example.com/pricing to **Website*
 ## 3. Check it worked
 
 - Report what was created (titles, document count) and anything that failed, with the reason.
-- Documents are processed after upload. If `get_document` shows `pending` or `processing`, say it will be searchable shortly.
-- When processing is done, `search` for a question the new content answers and show that it comes back.
+- Documents are processed after upload. If `get_document` shows processing `pending` or `processing`, wait and check again.
+
+## 4. Publish
+
+New documents start as **drafts**: customers and search don't see them until they're published. This is the review step.
+
+1. Show the user what will go live (titles, and the text for anything you drafted).
+2. On their yes, call `publish_documents` with the document IDs (processing must be `completed`).
+3. `search` for a question the new content answers and show that it now comes back.
+
+If they want to review in the portal first, leave them as drafts and say where to find them.
 
 ## Errors
 

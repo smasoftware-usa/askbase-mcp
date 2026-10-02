@@ -73,8 +73,10 @@ class ASKClient:
                 "query": query,
                 "collection_ids": collection_ids,
                 "top_k": top_k or self.settings.default_top_k,
+                # `is not None`: 0.0 is a valid threshold, not "unset".
                 "similarity_threshold": similarity_threshold
-                or self.settings.default_similarity_threshold,
+                if similarity_threshold is not None
+                else self.settings.default_similarity_threshold,
                 "include_content": include_content,
             },
         )
@@ -102,18 +104,34 @@ class ASKClient:
         slug: Optional[str] = None,
         description: Optional[str] = None,
         metadata: Optional[dict] = None,
+        knowledge_base_id: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Create a new collection."""
+        """Create a new collection inside a knowledge base."""
         return await self._request(
             "POST",
             "/collections",
             json={
+                "knowledge_base_id": knowledge_base_id,
                 "name": name,
                 "slug": slug,
                 "description": description,
                 "metadata": metadata,
             },
         )
+
+    async def set_document_status(self, document_id: str, status: str) -> dict[str, Any]:
+        """draft | test | published | unpublished. Only published documents
+        are searchable with API keys and used by the live assistant.
+        (Per document: the API's /documents/bulk/status route is shadowed
+        by /documents/{id}/status on current servers.)"""
+        return await self._request("POST", f"/documents/{document_id}/status", json={"status": status})
+
+    # Knowledge bases (collections live inside one)
+    async def list_knowledge_bases(self) -> dict[str, Any]:
+        return await self._request("GET", "/knowledge-bases")
+
+    async def create_knowledge_base(self, name: str, description: Optional[str] = None) -> dict[str, Any]:
+        return await self._request("POST", "/knowledge-bases", json={"name": name, "description": description})
 
     # Documents
     async def list_documents(

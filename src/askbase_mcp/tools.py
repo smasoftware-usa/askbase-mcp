@@ -54,7 +54,9 @@ def _explain(e: httpx.HTTPStatusError) -> str:
         detail = e.response.json().get("detail")
     except Exception:
         detail = None
-    detail = f" ({detail})" if isinstance(detail, str) else ""
+    if isinstance(detail, list):  # FastAPI validation errors
+        detail = "; ".join(f"{'.'.join(map(str, d.get('loc', [])[1:]))}: {d.get('msg')}" for d in detail[:3])
+    detail = f" ({detail})" if isinstance(detail, str) and detail else ""
     if code == 401:
         return "AskBase rejected the API key: check ASKBASE_API_KEY is set to a valid, active key." + detail
     if code == 403:
@@ -166,14 +168,58 @@ def build_server(settings: Settings, *, allow_env_key: bool) -> MCPServer:
         return format_document(
             await call(ctx, lambda c: c.create_document(collection_id, content, title, source_uri=source_uri)))
 
-    @server.tool(description="Create a collection. Needs an API key with the 'write' scope.")
+    @server.tool(description="Publish documents (or set them back to draft / unpublished). New documents start as drafts: only published documents are searchable and used by the live assistant, so publish after the user has reviewed them. Documents must have finished processing.")
+    async def publish_documents(
+        document_ids: Annotated[list[str], Field(min_length=1, description="Document IDs")],
+        status: Annotated[str, Field(description="published (default), draft or unpublished")] = "published",
+        ctx: Optional[Context] = None,
+    ) -> str:
+        if status not in ("published", "draft", "unpublished"):
+            raise AskBaseError("status must be published, draft or unpublished.")
+        async def apply(c: ASKClient) -> list[str]:
+            lines = []
+            for doc_id in document_ids:
+                try:
+                    d = await c.set_document_status(doc_id, status)
+                    lines.append(f"- {d.get('title') or doc_id}: {d.get('publication_status', status)}")
+                except httpx.HTTPStatusError as e:
+                    lines.append(f"- `{doc_id}`: not changed. {_explain(e)}")
+            return lines
+        lines = await call(ctx, apply)
+        return f"Set to {status}:\n" + "\n".join(lines)
+
+    @server.tool(description="List the project's knowledge bases (each holds collections).")
+    async def list_knowledge_bases(ctx: Optional[Context] = None) -> str:
+        return format_knowledge_bases(await call(ctx, lambda c: c.list_knowledge_bases()))
+
+    @server.tool(description="Create a collection. Collections live in a knowledge base: if the project has exactly one it's used, if it has none one is created; with several, pass knowledge_base_id. Needs an API key with the 'write' scope.")
     async def create_collection(
         name: Annotated[str, Field(description="Collection name")],
         description: Annotated[Optional[str], Field(description="What the collection holds")] = None,
-        slug: Annotated[Optional[str], Field(description="URL-friendly id (generated if omitted)")] = None,
+        slug: Annotated[Optional[str], Field(description="URL-friendly id: lowercase letters, digits, hyphens (generated if omitted)")] = None,
+        knowledge_base_id: Annotated[Optional[str], Field(description="Knowledge base to put it in (see list_knowledge_bases)")] = None,
         ctx: Optional[Context] = None,
     ) -> str:
-        return format_collection_created(await call(ctx, lambda c: c.create_collection(name, slug, description)))
+        async def create(c: ASKClient):
+            kb_id = knowledge_base_id
+            created_kb = None
+            if not kb_id:
+                kbs = (await c.list_knowledge_bases()).get("knowledge_bases", [])
+                if len(kbs) > 1:
+                    names = ", ".join(f"{k['name']} (`{k['id']}`)" for k in kbs)
+                    raise AskBaseError(f"This project has several knowledge bases; pass knowledge_base_id. Options: {names}")
+                if kbs:
+                    kb_id = kbs[0]["id"]
+                else:
+                    created_kb = await c.create_knowledge_base("Knowledge base", "Created by the AskBase plugin")
+                    kb_id = created_kb["id"]
+            col = await c.create_collection(name, slug, description, knowledge_base_id=kb_id)
+            return col, created_kb
+        col, created_kb = await call(ctx, create)
+        text = format_collection_created(col)
+        if created_kb:
+            text += f"\n\n(Created knowledge base \"{created_kb['name']}\" to hold it.)"
+        return text
 
     # ── Insights: questions the assistant couldn't answer ───
 
@@ -287,7 +333,7 @@ def format_search_results(data: dict) -> str:
                   f"Source: {r.get('source_uri') or 'n/a'} · document `{r['document_id']}`", "",
                   r.get("content") or "[content not included]", "", "---"]
     if not data["results"]:
-        lines.append("No results. Try different or broader keywords.")
+        lines.append("No results. Try different or broader keywords. (Search only covers published documents.)")
     return "\n".join(lines)
 
 
@@ -313,14 +359,17 @@ def format_documents(data: list) -> str:
         return "No documents found."
     lines = ["# Documents", ""]
     for d in data:
-        lines.append(f"- **{d.get('title') or 'Untitled'}** (`{d['id']}`): {d['status']}, "
-                     f"{d.get('chunk_count', 0)} chunks, updated {d.get('updated_at', d.get('created_at', '?'))}")
+        lines.append(f"- **{d.get('title') or 'Untitled'}** (`{d['id']}`): {d.get('publication_status', '?')}, "
+                     f"processing {d['status']}, {d.get('chunk_count', 0)} chunks, "
+                     f"updated {d.get('updated_at', d.get('created_at', '?'))}")
     return "\n".join(lines)
 
 
 def format_document(data: dict) -> str:
     return (f"# {data.get('title') or 'Untitled document'}\n\n- ID: {data['id']}\n- Collection: {data['collection_id']}\n"
-            f"- Status: {data['status']}\n- Source: {data.get('source_uri') or 'n/a'}\n"
+            f"- Processing: {data['status']}\n- Publication: {data.get('publication_status', '?')} "
+            f"(only published documents are searchable and used by the assistant)\n"
+            f"- Source: {data.get('source_uri') or 'n/a'}\n"
             f"- Chunks: {data.get('chunk_count', 0)}\n- Created: {data.get('created_at', '?')}")
 
 
@@ -341,6 +390,15 @@ def format_ingestion_result(data: dict) -> str:
         return (f"Ingested{dup}.\n\n- Document ID: {doc['document_id']}\n- Title: {doc['title']}\n"
                 f"- Status: {doc['status']}\n- Chunks: {doc['chunk_count']}")
     return f"Ingestion failed: {data.get('error') or 'unknown error'}"
+
+
+def format_knowledge_bases(data: dict) -> str:
+    kbs = data.get("knowledge_bases", [])
+    if not kbs:
+        return "No knowledge bases yet. create_collection makes one when needed."
+    return "# Knowledge bases\n\n" + "\n".join(
+        f"- **{k['name']}** (`{k['id']}`): {k.get('collection_count', 0)} collections, {k.get('document_count', 0)} documents"
+        for k in kbs)
 
 
 def format_collection_created(data: dict) -> str:
