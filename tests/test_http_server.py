@@ -226,9 +226,10 @@ def test_validation_errors_are_shown(client):
 
 def test_publish_documents(client):
     with respx.mock(base_url="https://api.test.com/v1") as api:
-        bulk = api.post("/documents/bulk/status").mock(return_value=Response(200, json={"message": "2 document(s) updated to 'published'"}))
+        d1 = api.post("/documents/d1/status").mock(return_value=Response(200, json={"title": "Refunds", "publication_status": "published"}))
+        api.post("/documents/d2/status").mock(return_value=Response(400, json={"detail": "processing status is 'processing'"}))
         text, err = call_tool(client, "publish_documents", {"document_ids": ["d1", "d2"]})
-        assert not err and "2 document(s)" in text
-        assert json.loads(bulk.calls.last.request.content) == {"document_ids": ["d1", "d2"], "status": "published"}
+        assert not err and "Refunds: published" in text and "`d2`: not changed" in text and "processing" in text
+        assert json.loads(d1.calls.last.request.content) == {"status": "published"}
         text, err = call_tool(client, "publish_documents", {"document_ids": ["d1"], "status": "deleted"})
     assert err and "status must be" in text

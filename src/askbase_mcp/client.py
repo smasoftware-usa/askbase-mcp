@@ -117,11 +117,12 @@ class ASKClient:
             },
         )
 
-    async def set_documents_status(self, document_ids: list[str], status: str) -> dict[str, Any]:
+    async def set_document_status(self, document_id: str, status: str) -> dict[str, Any]:
         """draft | test | published | unpublished. Only published documents
-        are searchable with API keys and used by the live assistant."""
-        return await self._request("POST", "/documents/bulk/status",
-                                   json={"document_ids": document_ids, "status": status})
+        are searchable with API keys and used by the live assistant.
+        (Per document: the API's /documents/bulk/status route is shadowed
+        by /documents/{id}/status on current servers.)"""
+        return await self._request("POST", f"/documents/{document_id}/status", json={"status": status})
 
     # Knowledge bases (collections live inside one)
     async def list_knowledge_bases(self) -> dict[str, Any]:

@@ -176,8 +176,17 @@ def build_server(settings: Settings, *, allow_env_key: bool) -> MCPServer:
     ) -> str:
         if status not in ("published", "draft", "unpublished"):
             raise AskBaseError("status must be published, draft or unpublished.")
-        r = await call(ctx, lambda c: c.set_documents_status(document_ids, status))
-        return r.get("message") or f"{len(document_ids)} document(s) set to {status}."
+        async def apply(c: ASKClient) -> list[str]:
+            lines = []
+            for doc_id in document_ids:
+                try:
+                    d = await c.set_document_status(doc_id, status)
+                    lines.append(f"- {d.get('title') or doc_id}: {d.get('publication_status', status)}")
+                except httpx.HTTPStatusError as e:
+                    lines.append(f"- `{doc_id}`: not changed. {_explain(e)}")
+            return lines
+        lines = await call(ctx, apply)
+        return f"Set to {status}:\n" + "\n".join(lines)
 
     @server.tool(description="List the project's knowledge bases (each holds collections).")
     async def list_knowledge_bases(ctx: Optional[Context] = None) -> str:
