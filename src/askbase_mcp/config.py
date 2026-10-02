@@ -16,10 +16,10 @@ class Settings(BaseSettings):
 
     model_config = {"env_prefix": "ASK_"}
 
-    # Required
+    # API key (required for operations, can be set via environment or per-request)
     api_key: str = Field(
-        ...,
-        description="ASK-base API key (format: ask_live_xxx)",
+        default="",
+        description="ASK-base API key (format: ask_live_xxx). Can be empty if passed per-request.",
     )
 
     # API connection
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
         description="Default number of search results",
     )
     default_similarity_threshold: float = Field(
-        default=0.7,
+        default=0.4,
         ge=0.0,
         le=1.0,
         description="Default similarity threshold for search",
@@ -55,7 +55,8 @@ class Settings(BaseSettings):
     def validate_api_key(cls, v: str) -> str:
         """Validate API key format."""
         if not v:
-            raise ValueError("API key is required")
+            # Allow empty for server-side - API key will be passed per request
+            return v
         if not re.match(r"^ask_live_[a-zA-Z0-9]{30}$", v):
             # Allow flexibility but warn about format
             if not v.startswith("ask_"):

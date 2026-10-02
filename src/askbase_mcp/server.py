@@ -51,7 +51,7 @@ def create_server(settings: Settings) -> Server:
                             "type": "number",
                             "minimum": 0,
                             "maximum": 1,
-                            "default": 0.7,
+                            "default": 0.4,
                             "description": "Minimum similarity score (0-1)",
                         },
                     },

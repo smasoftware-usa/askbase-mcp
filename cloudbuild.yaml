@@ -1,0 +1,59 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:latest'
+      - '.'
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'askbase-mcp'
+      - '--image'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'ASK_API_BASE_URL=https://api.askbase.co'
+      # No Google Cloud permissions needed: it only calls the AskBase API with
+      # the caller's key.
+      - '--service-account'
+      - 'askbase-noperm-runtime@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--min-instances'
+      - '0'
+      - '--max-instances'
+      - '10'
+      - '--memory'
+      - '512Mi'
+      - '--cpu'
+      - '1'
+      - '--timeout'
+      - '300'
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:$COMMIT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/askbase-repo/mcp-server:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
