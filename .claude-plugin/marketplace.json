@@ -1,0 +1,17 @@
+{
+  "name": "askbase",
+  "owner": {
+    "name": "SMA Software",
+    "url": "https://askbase.co"
+  },
+  "metadata": {
+    "description": "AskBase plugins for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "askbase",
+      "source": "./plugin",
+      "description": "Search, grow and check your AskBase knowledge base from Claude Code."
+    }
+  ]
+}
