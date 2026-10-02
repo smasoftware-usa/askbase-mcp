@@ -102,18 +102,27 @@ class ASKClient:
         slug: Optional[str] = None,
         description: Optional[str] = None,
         metadata: Optional[dict] = None,
+        knowledge_base_id: Optional[str] = None,
     ) -> dict[str, Any]:
-        """Create a new collection."""
+        """Create a new collection inside a knowledge base."""
         return await self._request(
             "POST",
             "/collections",
             json={
+                "knowledge_base_id": knowledge_base_id,
                 "name": name,
                 "slug": slug,
                 "description": description,
                 "metadata": metadata,
             },
         )
+
+    # Knowledge bases (collections live inside one)
+    async def list_knowledge_bases(self) -> dict[str, Any]:
+        return await self._request("GET", "/knowledge-bases")
+
+    async def create_knowledge_base(self, name: str, description: Optional[str] = None) -> dict[str, Any]:
+        return await self._request("POST", "/knowledge-bases", json={"name": name, "description": description})
 
     # Documents
     async def list_documents(

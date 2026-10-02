@@ -46,7 +46,7 @@ Your key is sent only to the AskBase MCP server, as the `X-API-Key` header, and 
 ## Tools
 
 The MCP server provides:
-- **Knowledge base:** `search`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `create_collection`
+- **Knowledge base:** `search`, `list_knowledge_bases`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `create_collection`
 - **Insights:** `list_unanswered_questions`, `get_unanswered_question`, `suggest_answer`, `list_failed_lookups`
 - **CRM:** `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item`
 - **Assistant:** `ask_assistant`

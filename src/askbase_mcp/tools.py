@@ -54,7 +54,9 @@ def _explain(e: httpx.HTTPStatusError) -> str:
         detail = e.response.json().get("detail")
     except Exception:
         detail = None
-    detail = f" ({detail})" if isinstance(detail, str) else ""
+    if isinstance(detail, list):  # FastAPI validation errors
+        detail = "; ".join(f"{'.'.join(map(str, d.get('loc', [])[1:]))}: {d.get('msg')}" for d in detail[:3])
+    detail = f" ({detail})" if isinstance(detail, str) and detail else ""
     if code == 401:
         return "AskBase rejected the API key: check ASKBASE_API_KEY is set to a valid, active key." + detail
     if code == 403:
@@ -166,14 +168,38 @@ def build_server(settings: Settings, *, allow_env_key: bool) -> MCPServer:
         return format_document(
             await call(ctx, lambda c: c.create_document(collection_id, content, title, source_uri=source_uri)))
 
-    @server.tool(description="Create a collection. Needs an API key with the 'write' scope.")
+    @server.tool(description="List the project's knowledge bases (each holds collections).")
+    async def list_knowledge_bases(ctx: Optional[Context] = None) -> str:
+        return format_knowledge_bases(await call(ctx, lambda c: c.list_knowledge_bases()))
+
+    @server.tool(description="Create a collection. Collections live in a knowledge base: if the project has exactly one it's used, if it has none one is created; with several, pass knowledge_base_id. Needs an API key with the 'write' scope.")
     async def create_collection(
         name: Annotated[str, Field(description="Collection name")],
         description: Annotated[Optional[str], Field(description="What the collection holds")] = None,
-        slug: Annotated[Optional[str], Field(description="URL-friendly id (generated if omitted)")] = None,
+        slug: Annotated[Optional[str], Field(description="URL-friendly id: lowercase letters, digits, hyphens (generated if omitted)")] = None,
+        knowledge_base_id: Annotated[Optional[str], Field(description="Knowledge base to put it in (see list_knowledge_bases)")] = None,
         ctx: Optional[Context] = None,
     ) -> str:
-        return format_collection_created(await call(ctx, lambda c: c.create_collection(name, slug, description)))
+        async def create(c: ASKClient):
+            kb_id = knowledge_base_id
+            created_kb = None
+            if not kb_id:
+                kbs = (await c.list_knowledge_bases()).get("knowledge_bases", [])
+                if len(kbs) > 1:
+                    names = ", ".join(f"{k['name']} (`{k['id']}`)" for k in kbs)
+                    raise AskBaseError(f"This project has several knowledge bases; pass knowledge_base_id. Options: {names}")
+                if kbs:
+                    kb_id = kbs[0]["id"]
+                else:
+                    created_kb = await c.create_knowledge_base("Knowledge base", "Created by the AskBase plugin")
+                    kb_id = created_kb["id"]
+            col = await c.create_collection(name, slug, description, knowledge_base_id=kb_id)
+            return col, created_kb
+        col, created_kb = await call(ctx, create)
+        text = format_collection_created(col)
+        if created_kb:
+            text += f"\n\n(Created knowledge base \"{created_kb['name']}\" to hold it.)"
+        return text
 
     # ── Insights: questions the assistant couldn't answer ───
 
@@ -341,6 +367,15 @@ def format_ingestion_result(data: dict) -> str:
         return (f"Ingested{dup}.\n\n- Document ID: {doc['document_id']}\n- Title: {doc['title']}\n"
                 f"- Status: {doc['status']}\n- Chunks: {doc['chunk_count']}")
     return f"Ingestion failed: {data.get('error') or 'unknown error'}"
+
+
+def format_knowledge_bases(data: dict) -> str:
+    kbs = data.get("knowledge_bases", [])
+    if not kbs:
+        return "No knowledge bases yet. create_collection makes one when needed."
+    return "# Knowledge bases\n\n" + "\n".join(
+        f"- **{k['name']}** (`{k['id']}`): {k.get('collection_count', 0)} collections, {k.get('document_count', 0)} documents"
+        for k in kbs)
 
 
 def format_collection_created(data: dict) -> str:

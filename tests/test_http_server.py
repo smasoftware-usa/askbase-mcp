@@ -59,7 +59,7 @@ def test_tools_list_has_no_ctx_parameter(client):
     names = {t["name"] for t in tools}
     assert names == {"search", "list_collections", "get_collection_stats", "list_documents", "get_document",
                      "get_document_chunks", "ingest_url", "ingest_website", "create_document", "create_collection",
-                     "list_unanswered_questions", "get_unanswered_question", "suggest_answer", "list_failed_lookups",
+                     "list_knowledge_bases", "list_unanswered_questions", "get_unanswered_question", "suggest_answer", "list_failed_lookups",
                      "find_contacts", "get_contact", "get_contact_memory", "list_open_items", "update_open_item",
                      "ask_assistant"}
     for t in tools:
@@ -82,6 +82,7 @@ def test_search_uses_the_callers_key_and_formats(client):
 
 def test_api_errors_are_explained(client):
     with respx.mock(base_url="https://api.test.com/v1") as api:
+        api.get("/knowledge-bases").mock(return_value=Response(200, json={"knowledge_bases": [{"id": "kb1", "name": "KB"}], "total": 1}))
         api.post("/collections").mock(return_value=Response(403, json={"detail": "Missing required scopes: write"}))
         text, is_error = tool_text(rpc(client, "tools/call", {"name": "create_collection", "arguments": {"name": "Docs"}},
                                        key="ask_live_readonly"))
@@ -190,3 +191,33 @@ def test_ask_assistant_marks_test_sessions(client):
     assert body["message"] == "Do you ship to Canada?" and body["context_variables"]["origin"] == "askbase-plugin/test-assistant"
     assert "user_identity" not in body and "contact_token" not in body  # anonymous: no CRM contact or memory
     assert "We ship to Canada" in text and "Shipping (score 0.82)" in text
+
+
+
+def test_create_collection_picks_or_creates_the_knowledge_base(client):
+    col = {"id": "c1", "name": "Help", "slug": "help"}
+    with respx.mock(base_url="https://api.test.com/v1") as api:
+        api.get("/knowledge-bases").mock(return_value=Response(200, json={"knowledge_bases": [], "total": 0}))
+        kb = api.post("/knowledge-bases").mock(return_value=Response(201, json={"id": "kbnew", "name": "Knowledge base"}))
+        post = api.post("/collections").mock(return_value=Response(201, json=col))
+        text, err = call_tool(client, "create_collection", {"name": "Help"})
+    assert not err and kb.called and json.loads(post.calls.last.request.content)["knowledge_base_id"] == "kbnew"
+    assert "Created knowledge base" in text
+
+    with respx.mock(base_url="https://api.test.com/v1") as api:
+        api.get("/knowledge-bases").mock(return_value=Response(200, json={"knowledge_bases": [
+            {"id": "kb1", "name": "Support"}, {"id": "kb2", "name": "Sales"}], "total": 2}))
+        post = api.post("/collections").mock(return_value=Response(201, json=col))
+        text, err = call_tool(client, "create_collection", {"name": "Help"})
+        assert err and "several knowledge bases" in text and "Sales (`kb2`)" in text and not post.called
+        text, err = call_tool(client, "create_collection", {"name": "Help", "knowledge_base_id": "kb2"})
+    assert not err and json.loads(post.calls.last.request.content)["knowledge_base_id"] == "kb2"
+
+
+def test_validation_errors_are_shown(client):
+    with respx.mock(base_url="https://api.test.com/v1") as api:
+        api.get("/knowledge-bases").mock(return_value=Response(200, json={"knowledge_bases": [{"id": "kb1", "name": "KB"}], "total": 1}))
+        api.post("/collections").mock(return_value=Response(422, json={"detail": [
+            {"loc": ["body", "slug"], "msg": "String should match pattern"}]}))
+        text, err = call_tool(client, "create_collection", {"name": "Help", "slug": "Bad Slug"})
+    assert err and "slug: String should match pattern" in text
