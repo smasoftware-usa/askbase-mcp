@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "askbase": {
+      "type": "http",
+      "url": "https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp",
+      "headers": {
+        "X-API-Key": "${ASKBASE_API_KEY}"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "askbase",
+  "description": "Search, grow and check your AskBase knowledge base from Claude Code: answers with cited sources, content ingestion, health checks and guided setup.",
+  "version": "0.1.0",
+  "author": {
+    "name": "SMA Software"
+  },
+  "homepage": "https://askbase.co",
+  "repository": "https://github.com/smasoftware-usa/askbase-mcp",
+  "license": "MIT",
+  "keywords": ["askbase", "knowledge-base", "rag", "mcp", "search"]
+}
