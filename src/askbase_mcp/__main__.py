@@ -1,7 +1,6 @@
-"""Entry point for running ASKbase MCP server."""
+"""Entry point for `python -m askbase_mcp` (stdio server)."""
 
-import asyncio
 from askbase_mcp.server import main
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

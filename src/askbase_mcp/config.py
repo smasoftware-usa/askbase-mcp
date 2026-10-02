@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # API connection
     api_base_url: str = Field(
-        default="https://api.askbase.com",
+        default="https://api.askbase.co",
         description="ASK-base API base URL",
     )
 
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Server metadata
     server_name: str = "askbase-mcp"
-    server_version: str = "1.0.0"
+    server_version: str = "2.0.0"
 
     @field_validator("api_key")
     @classmethod

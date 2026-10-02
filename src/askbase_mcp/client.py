@@ -11,9 +11,11 @@ from askbase_mcp.config import Settings
 class ASKClient:
     """Async HTTP client for ASK-base API."""
 
-    def __init__(self, settings: Settings):
-        """Initialize the client with settings."""
+    def __init__(self, settings: Settings, api_key: Optional[str] = None):
+        """Initialize the client. api_key overrides settings.api_key: the
+        hosted server passes each caller's own key, never a shared one."""
         self.settings = settings
+        self.api_key = api_key if api_key is not None else settings.api_key
         self.base_url = f"{settings.api_base_url}/v1"
         self._client: Optional[httpx.AsyncClient] = None
 
@@ -22,7 +24,7 @@ class ASKClient:
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={
-                "X-API-Key": self.settings.api_key,
+                "X-API-Key": self.api_key,
                 "Content-Type": "application/json",
             },
             timeout=60.0,

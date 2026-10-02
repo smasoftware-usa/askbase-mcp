@@ -17,7 +17,7 @@ def test_settings_loads_from_env():
         from askbase_mcp.config import Settings
         settings = Settings()
         assert settings.api_key == "ask_live_test123456789012345678901234"
-        assert settings.api_base_url == "https://api.askbase.com"
+        assert settings.api_base_url == "https://api.askbase.co"
         assert settings.default_top_k == 5
 
 
