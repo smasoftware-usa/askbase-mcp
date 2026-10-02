@@ -117,6 +117,12 @@ class ASKClient:
             },
         )
 
+    async def set_documents_status(self, document_ids: list[str], status: str) -> dict[str, Any]:
+        """draft | test | published | unpublished. Only published documents
+        are searchable with API keys and used by the live assistant."""
+        return await self._request("POST", "/documents/bulk/status",
+                                   json={"document_ids": document_ids, "status": status})
+
     # Knowledge bases (collections live inside one)
     async def list_knowledge_bases(self) -> dict[str, Any]:
         return await self._request("GET", "/knowledge-bases")

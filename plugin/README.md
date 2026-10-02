@@ -30,6 +30,8 @@ Run `/askbase:setup` to check the connection and add your first content.
 | `/askbase:open-items` | What you promised customers and what's overdue, across all contacts; closes items you confirm. |
 | `/askbase:test-assistant` | Runs a question set through the live assistant, grades answers against the knowledge base, reports problems. |
 
+New documents start as **drafts**: they aren't searchable or used by your assistant until published. The skills show you what will go live and publish only after you confirm.
+
 Claude also uses these skills on its own when your request matches, e.g. "what do our docs say about refunds?".
 
 ## API key scopes
@@ -46,7 +48,7 @@ Your key is sent only to the AskBase MCP server, as the `X-API-Key` header, and 
 ## Tools
 
 The MCP server provides:
-- **Knowledge base:** `search`, `list_knowledge_bases`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `create_collection`
+- **Knowledge base:** `search`, `list_knowledge_bases`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `publish_documents`, `create_collection`
 - **Insights:** `list_unanswered_questions`, `get_unanswered_question`, `suggest_answer`, `list_failed_lookups`
 - **CRM:** `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item`
 - **Assistant:** `ask_assistant`

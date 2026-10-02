@@ -17,7 +17,7 @@ The answer must come from the knowledge base, not from general knowledge. A shor
    - Use only what the passages say. Don't fill gaps from general knowledge; if a detail is missing, say it's not in the knowledge base.
    - Cite each fact with its document title, e.g. *(Refund policy › Exceptions)*. Add the source URL when the result has one.
    - If passages disagree, show both with their titles and say they conflict.
-5. **If the knowledge base doesn't cover it**, say so plainly ("The knowledge base doesn't cover X."), mention the closest thing it does cover, and offer to add the missing content with `/askbase:add-content`.
+5. **If the knowledge base doesn't cover it**, say so plainly (search only sees published documents, so a draft on the topic won't show up) ("The knowledge base doesn't cover X."), mention the closest thing it does cover, and offer to add the missing content with `/askbase:add-content`.
 
 ## When a passage is cut off
 

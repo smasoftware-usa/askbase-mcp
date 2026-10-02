@@ -168,6 +168,17 @@ def build_server(settings: Settings, *, allow_env_key: bool) -> MCPServer:
         return format_document(
             await call(ctx, lambda c: c.create_document(collection_id, content, title, source_uri=source_uri)))
 
+    @server.tool(description="Publish documents (or set them back to draft / unpublished). New documents start as drafts: only published documents are searchable and used by the live assistant, so publish after the user has reviewed them. Documents must have finished processing.")
+    async def publish_documents(
+        document_ids: Annotated[list[str], Field(min_length=1, description="Document IDs")],
+        status: Annotated[str, Field(description="published (default), draft or unpublished")] = "published",
+        ctx: Optional[Context] = None,
+    ) -> str:
+        if status not in ("published", "draft", "unpublished"):
+            raise AskBaseError("status must be published, draft or unpublished.")
+        r = await call(ctx, lambda c: c.set_documents_status(document_ids, status))
+        return r.get("message") or f"{len(document_ids)} document(s) set to {status}."
+
     @server.tool(description="List the project's knowledge bases (each holds collections).")
     async def list_knowledge_bases(ctx: Optional[Context] = None) -> str:
         return format_knowledge_bases(await call(ctx, lambda c: c.list_knowledge_bases()))
@@ -313,7 +324,7 @@ def format_search_results(data: dict) -> str:
                   f"Source: {r.get('source_uri') or 'n/a'} · document `{r['document_id']}`", "",
                   r.get("content") or "[content not included]", "", "---"]
     if not data["results"]:
-        lines.append("No results. Try different or broader keywords.")
+        lines.append("No results. Try different or broader keywords. (Search only covers published documents.)")
     return "\n".join(lines)
 
 
@@ -339,14 +350,17 @@ def format_documents(data: list) -> str:
         return "No documents found."
     lines = ["# Documents", ""]
     for d in data:
-        lines.append(f"- **{d.get('title') or 'Untitled'}** (`{d['id']}`): {d['status']}, "
-                     f"{d.get('chunk_count', 0)} chunks, updated {d.get('updated_at', d.get('created_at', '?'))}")
+        lines.append(f"- **{d.get('title') or 'Untitled'}** (`{d['id']}`): {d.get('publication_status', '?')}, "
+                     f"processing {d['status']}, {d.get('chunk_count', 0)} chunks, "
+                     f"updated {d.get('updated_at', d.get('created_at', '?'))}")
     return "\n".join(lines)
 
 
 def format_document(data: dict) -> str:
     return (f"# {data.get('title') or 'Untitled document'}\n\n- ID: {data['id']}\n- Collection: {data['collection_id']}\n"
-            f"- Status: {data['status']}\n- Source: {data.get('source_uri') or 'n/a'}\n"
+            f"- Processing: {data['status']}\n- Publication: {data.get('publication_status', '?')} "
+            f"(only published documents are searchable and used by the assistant)\n"
+            f"- Source: {data.get('source_uri') or 'n/a'}\n"
             f"- Chunks: {data.get('chunk_count', 0)}\n- Created: {data.get('created_at', '?')}")
 
 

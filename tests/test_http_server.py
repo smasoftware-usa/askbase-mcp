@@ -59,7 +59,7 @@ def test_tools_list_has_no_ctx_parameter(client):
     names = {t["name"] for t in tools}
     assert names == {"search", "list_collections", "get_collection_stats", "list_documents", "get_document",
                      "get_document_chunks", "ingest_url", "ingest_website", "create_document", "create_collection",
-                     "list_knowledge_bases", "list_unanswered_questions", "get_unanswered_question", "suggest_answer", "list_failed_lookups",
+                     "publish_documents", "list_knowledge_bases", "list_unanswered_questions", "get_unanswered_question", "suggest_answer", "list_failed_lookups",
                      "find_contacts", "get_contact", "get_contact_memory", "list_open_items", "update_open_item",
                      "ask_assistant"}
     for t in tools:
@@ -221,3 +221,14 @@ def test_validation_errors_are_shown(client):
             {"loc": ["body", "slug"], "msg": "String should match pattern"}]}))
         text, err = call_tool(client, "create_collection", {"name": "Help", "slug": "Bad Slug"})
     assert err and "slug: String should match pattern" in text
+
+
+
+def test_publish_documents(client):
+    with respx.mock(base_url="https://api.test.com/v1") as api:
+        bulk = api.post("/documents/bulk/status").mock(return_value=Response(200, json={"message": "2 document(s) updated to 'published'"}))
+        text, err = call_tool(client, "publish_documents", {"document_ids": ["d1", "d2"]})
+        assert not err and "2 document(s)" in text
+        assert json.loads(bulk.calls.last.request.content) == {"document_ids": ["d1", "d2"], "status": "published"}
+        text, err = call_tool(client, "publish_documents", {"document_ids": ["d1"], "status": "deleted"})
+    assert err and "status must be" in text
