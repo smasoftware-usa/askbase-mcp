@@ -282,6 +282,53 @@ class ASKClient:
             body["closed_note"] = closed_note
         return await self._request("PATCH", f"/crm/contacts/{contact_id}/open-loops/{loop_id}", json=body)
 
+    # CRM: companies and deals
+    @staticmethod
+    def _params(**kwargs) -> dict[str, Any]:
+        return {k: v for k, v in kwargs.items() if v is not None and v != ""}
+
+    async def list_companies(self, search: Optional[str] = None, industry: Optional[str] = None,
+                             size: Optional[str] = None, sort: str = "name", limit: int = 20) -> dict[str, Any]:
+        return await self._request("GET", "/crm/companies", params=self._params(
+            search=search, industry=industry, size=size, sort=sort, limit=limit))
+
+    async def get_company(self, company_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/crm/companies/{company_id}")
+
+    async def list_pipelines(self) -> list[dict[str, Any]]:
+        return await self._request("GET", "/crm/pipelines")
+
+    async def list_deals(self, **filters) -> dict[str, Any]:
+        return await self._request("GET", "/crm/deals", params=self._params(**filters))
+
+    async def get_deal(self, deal_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/crm/deals/{deal_id}")
+
+    async def get_deal_timeline(self, deal_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        return await self._request("GET", f"/crm/deals/{deal_id}/timeline", params={"limit": limit})
+
+    async def deal_summary(self, pipeline_id: Optional[str] = None, period_days: int = 90) -> dict[str, Any]:
+        return await self._request("GET", "/crm/deals/summary", params=self._params(
+            pipeline_id=pipeline_id, period_days=period_days))
+
+    async def create_deal(self, body: dict[str, Any]) -> dict[str, Any]:
+        return await self._request("POST", "/crm/deals", json=body)
+
+    async def move_deal(self, deal_id: str, stage_id: str, lost_reason: Optional[str] = None) -> dict[str, Any]:
+        return await self._request("POST", f"/crm/deals/{deal_id}/move", json=self._params(
+            stage_id=stage_id, lost_reason=lost_reason))
+
+    async def list_deal_suggestions(self, status: str = "pending", contact_id: Optional[str] = None,
+                                    company_id: Optional[str] = None, limit: int = 50) -> list[dict[str, Any]]:
+        return await self._request("GET", "/crm/deal-suggestions", params=self._params(
+            status=status, contact_id=contact_id, company_id=company_id, limit=limit))
+
+    async def accept_deal_suggestion(self, suggestion_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        return await self._request("POST", f"/crm/deal-suggestions/{suggestion_id}/accept", json=body)
+
+    async def dismiss_deal_suggestion(self, suggestion_id: str) -> dict[str, Any]:
+        return await self._request("POST", f"/crm/deal-suggestions/{suggestion_id}/dismiss")
+
     # Chat (the live assistant)
     async def chat(self, message: str, collection_ids: Optional[list[str]] = None) -> dict[str, Any]:
         body: dict[str, Any] = {

@@ -26,7 +26,8 @@ INSTRUCTIONS = (
     "Tools for an AskBase knowledge base: search it, browse collections and "
     "documents, and add content. Answer from search results and cite the "
     "document title; if nothing relevant comes back, say the knowledge base "
-    "doesn't cover it."
+    "doesn't cover it. CRM tools cover contacts, companies, deals and deal "
+    "suggestions; confirm with the user before any tool that changes data."
 )
 
 
@@ -308,6 +309,152 @@ def build_server(settings: Settings, *, allow_env_key: bool) -> MCPServer:
         r = await call(ctx, lambda c: c.update_open_loop(contact_id, item_id, status, note))
         return f"Open item \"{r['title']}\" is now {r['status']}."
 
+    # ── CRM: companies, deals, suggestions ──────────────────
+
+    @server.tool(description="Find companies in the CRM by name or email domain, optionally by industry or size. Shows contact counts and last activity.")
+    async def find_companies(
+        query: Annotated[Optional[str], Field(description="Name or domain to search for")] = None,
+        industry: Annotated[Optional[str], Field(description="One of the project's industries")] = None,
+        size: Annotated[Optional[str], Field(description="One of the project's company sizes")] = None,
+        sort: Annotated[str, Field(description="name, contacts, recent or created")] = "name",
+        limit: Annotated[int, Field(ge=1, le=100)] = 20,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        return format_companies(await call(ctx, lambda c: c.list_companies(query, industry, size, sort, limit)))
+
+    @server.tool(description="A company's profile, its contacts, its open deals and any pending deal suggestions.")
+    async def get_company(
+        company_id: Annotated[str, Field(description="Company ID from find_companies or a contact")],
+        ctx: Optional[Context] = None,
+    ) -> str:
+        async def gather(c: ASKClient) -> dict:
+            company = await c.get_company(company_id)
+            return {"company": company,
+                    "deals": (await c.list_deals(company_id=company["id"], status="open", sort="close_date"))["deals"],
+                    "suggestions": await c.list_deal_suggestions(company_id=company["id"])}
+        return format_company(await call(ctx, gather))
+
+    @server.tool(description="List deals. Filter by status (open, won, lost), pipeline, company, contact or name; sort by close_date, amount, updated, created or name.")
+    async def list_deals(
+        status: Annotated[Optional[str], Field(description="open, won or lost")] = "open",
+        query: Annotated[Optional[str], Field(description="Text in the deal name")] = None,
+        company_id: Annotated[Optional[str], Field(description="Only this company's deals")] = None,
+        contact_id: Annotated[Optional[str], Field(description="Only deals this contact is on")] = None,
+        pipeline_id: Annotated[Optional[str], Field(description="Only this pipeline")] = None,
+        sort: Annotated[str, Field(description="close_date, amount, updated, created or name")] = "close_date",
+        limit: Annotated[int, Field(ge=1, le=200)] = 50,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        return format_deals(await call(ctx, lambda c: c.list_deals(
+            status=status, search=query, company_id=company_id, contact_id=contact_id, pipeline_id=pipeline_id,
+            sort=sort, limit=limit)))
+
+    @server.tool(description="One deal: amount, stage and probability, close date, company, people and their roles, at-risk flag, and recent history.")
+    async def get_deal(
+        deal_id: Annotated[str, Field(description="Deal ID from list_deals")],
+        ctx: Optional[Context] = None,
+    ) -> str:
+        async def gather(c: ASKClient) -> dict:
+            return {"deal": await c.get_deal(deal_id), "timeline": await c.get_deal_timeline(deal_id)}
+        return format_deal(await call(ctx, gather))
+
+    @server.tool(description="Pipeline overview: stages of each pipeline, open value by stage, weighted forecast by close month, win rate and average time to win over a period, and deals past their close date. Amounts are per currency, never converted.")
+    async def deal_pipeline_summary(
+        pipeline_id: Annotated[Optional[str], Field(description="Only this pipeline (default: all)")] = None,
+        period_days: Annotated[int, Field(ge=1, le=730, description="Window for win rate and cycle")] = 90,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        async def gather(c: ASKClient) -> dict:
+            return {"pipelines": await c.list_pipelines(), "summary": await c.deal_summary(pipeline_id, period_days)}
+        return format_pipeline_summary(await call(ctx, gather))
+
+    @server.tool(description="Deal suggestions the assistant noticed in customer conversations (new deal, move a deal forward, deal at risk), each with the customer's own words. Pending ones wait for a person to decide.")
+    async def list_deal_suggestions(
+        status: Annotated[str, Field(description="pending, accepted, dismissed or all")] = "pending",
+        contact_id: Annotated[Optional[str], Field(description="Only this contact's")] = None,
+        company_id: Annotated[Optional[str], Field(description="Only this company's")] = None,
+        limit: Annotated[int, Field(ge=1, le=200)] = 50,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        return format_deal_suggestions(await call(ctx, lambda c: c.list_deal_suggestions(
+            status, contact_id, company_id, limit)))
+
+    async def _stage_id(c: ASKClient, stage: str, pipeline_id: Optional[str]) -> str:
+        """A stage ID from an ID or a stage name (in the given or default pipeline)."""
+        pipelines = await c.list_pipelines()
+        stages = [s for p in pipelines for s in p["stages"]]
+        if any(s["id"] == stage for s in stages):
+            return stage
+        scope = next((p for p in pipelines if p["id"] == pipeline_id), None) if pipeline_id else (
+            pipelines[0] if pipelines else None)
+        match = [s for s in (scope or {}).get("stages", []) if s["name"].lower() == stage.strip().lower()]
+        if not match:
+            names = ", ".join(s["name"] for s in (scope or {}).get("stages", []))
+            raise AskBaseError(f"No stage called '{stage}'. Stages: {names}.")
+        return match[0]["id"]
+
+    @server.tool(description="Create a deal. Changes the CRM: confirm the details with the user first. Amounts need an ISO currency. Defaults to the default pipeline's first stage.")
+    async def create_deal(
+        name: Annotated[str, Field(description="Short deal name, e.g. '20 seats for Acme'")],
+        amount: Annotated[Optional[float], Field(ge=0, description="Deal value")] = None,
+        currency: Annotated[Optional[str], Field(description="ISO currency, e.g. USD (required with an amount)")] = None,
+        expected_close_date: Annotated[Optional[str], Field(description="YYYY-MM-DD")] = None,
+        contact_id: Annotated[Optional[str], Field(description="Main contact")] = None,
+        company_id: Annotated[Optional[str], Field(description="Company (defaults to the contact's)")] = None,
+        pipeline_id: Annotated[Optional[str], Field(description="Pipeline (default pipeline if omitted)")] = None,
+        stage: Annotated[Optional[str], Field(description="Stage name or ID")] = None,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        async def run(c: ASKClient) -> dict:
+            body: dict[str, Any] = {"name": name, "amount": amount, "currency": currency,
+                                    "expected_close_date": expected_close_date, "primary_contact_id": contact_id,
+                                    "company_id": company_id, "pipeline_id": pipeline_id}
+            if contact_id and not company_id:
+                body["company_id"] = (await c.get_contact(contact_id)).get("company_id")
+            if stage:
+                body["stage_id"] = await _stage_id(c, stage, pipeline_id)
+            return await c.create_deal({k: v for k, v in body.items() if v is not None})
+        d = await call(ctx, run)
+        return f"Created deal \"{d['name']}\" (`{d['id']}`) in {d.get('stage_name')}: {_money(d.get('amount'), d.get('currency'))}."
+
+    @server.tool(description="Move a deal to another stage (by name or ID); moving to a lost stage takes an optional reason. Changes the CRM: confirm with the user first.")
+    async def move_deal(
+        deal_id: Annotated[str, Field(description="Deal ID")],
+        stage: Annotated[str, Field(description="Stage name (in the deal's pipeline) or stage ID")],
+        lost_reason: Annotated[Optional[str], Field(description="Why it was lost, when moving to a lost stage")] = None,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        async def run(c: ASKClient) -> dict:
+            deal = await c.get_deal(deal_id)
+            return await c.move_deal(deal_id, await _stage_id(c, stage, deal["pipeline_id"]), lost_reason)
+        d = await call(ctx, run)
+        return f"\"{d['name']}\" is now in {d.get('stage_name')} ({d['status']})."
+
+    @server.tool(description="Accept or dismiss a deal suggestion. Accepting a new_deal creates the deal (you can adjust name, amount, currency, close date); advance moves the deal; at_risk flags it. Confirm with the user first.")
+    async def decide_deal_suggestion(
+        suggestion_id: Annotated[str, Field(description="Suggestion ID from list_deal_suggestions")],
+        decision: Annotated[str, Field(description="accept or dismiss")],
+        name: Annotated[Optional[str], Field(description="new_deal: deal name to use")] = None,
+        amount: Annotated[Optional[float], Field(ge=0, description="new_deal: amount to use")] = None,
+        currency: Annotated[Optional[str], Field(description="new_deal: ISO currency")] = None,
+        expected_close_date: Annotated[Optional[str], Field(description="new_deal: YYYY-MM-DD")] = None,
+        ctx: Optional[Context] = None,
+    ) -> str:
+        if decision not in ("accept", "dismiss"):
+            raise AskBaseError("decision must be accept or dismiss.")
+
+        async def run(c: ASKClient) -> dict:
+            if decision == "dismiss":
+                return await c.dismiss_deal_suggestion(suggestion_id)
+            body = {"name": name, "amount": amount, "currency": currency, "expected_close_date": expected_close_date}
+            return await c.accept_deal_suggestion(suggestion_id, {k: v for k, v in body.items() if v is not None})
+        s = await call(ctx, run)
+        if s["status"] == "dismissed":
+            return f"Dismissed the suggestion \"{s['title']}\"."
+        done = {"new_deal": f"created deal `{s.get('deal_id')}`", "advance": f"moved {s.get('deal_name')}",
+                "at_risk": f"flagged {s.get('deal_name')} as at risk"}[s["kind"]]
+        return f"Accepted \"{s['title']}\": {done}."
+
     # ── Live assistant ──────────────────────────────────────
 
     @server.tool(description="Ask the project's live assistant a question, as an anonymous visitor would, and get its answer and sources. Each call runs the real model (costs tokens) and appears as a test conversation in the portal.")
@@ -484,7 +631,7 @@ def format_contacts(data: dict) -> str:
         return "No matching contacts."
     lines = [f"# Contacts ({data.get('total', len(contacts))})", ""]
     for c in contacts:
-        extra = ", ".join(x for x in (c.get("email"), c.get("company"), c.get("stage")) if x)
+        extra = ", ".join(x for x in (c.get("email"), c.get("company_name") or c.get("company"), c.get("stage")) if x)
         lines.append(f"- **{_name(c)}** (`{c['id']}`): {extra}; {c.get('total_conversations', 0)} conversations, "
                      f"last seen {_when(c.get('last_seen_at'))}")
     return "\n".join(lines)
@@ -492,7 +639,9 @@ def format_contacts(data: dict) -> str:
 
 def format_contact(c: dict) -> str:
     lines = [f"# {_name(c)}", ""]
-    for label, key in (("Email", "email"), ("Company", "company"), ("Job title", "job_title"), ("Stage", "stage"),
+    if c.get("company_id"):
+        lines.append(f"- Company: {c.get('company_name')} (`{c['company_id']}`)")
+    for label, key in (("Email", "email"), ("Company", "company" if not c.get("company_id") else ""), ("Job title", "job_title"), ("Stage", "stage"),
                        ("Language", "preferred_language"), ("Country", "country_name"), ("Time zone", "timezone_code"),
                        ("Source", "source")):
         if c.get(key):
@@ -562,3 +711,128 @@ def format_assistant_answer(r: dict) -> str:
     else:
         lines += ["", "No knowledge-base sources were used."]
     return "\n".join(lines)
+
+
+# ── CRM: companies and deals ─────────────────────────────────
+
+
+def _money(amount, currency) -> str:
+    if amount in (None, ""):
+        return "no amount"
+    try:
+        value = f"{float(amount):,.2f}"
+    except (TypeError, ValueError):
+        value = str(amount)
+    return f"{currency or ''} {value}".strip()
+
+
+def _totals(totals: dict) -> str:
+    return ", ".join(_money(v, k) for k, v in totals.items()) or "no amounts"
+
+
+def format_companies(data: dict) -> str:
+    companies = data.get("companies", [])
+    if not companies:
+        return "No matching companies."
+    lines = [f"# Companies ({data.get('total', len(companies))})", ""]
+    for c in companies:
+        extra = ", ".join(x for x in (c.get("domain"), c.get("industry"), c.get("size")) if x)
+        n = c.get("contact_count", 0)
+        lines.append(f"- **{c['name']}** (`{c['id']}`){': ' + extra if extra else ''}; {n} "
+                     f"contact{'' if n == 1 else 's'}, last active {_when(c.get('last_seen_at'))}")
+    return "\n".join(lines)
+
+
+def _deal_line(d: dict) -> str:
+    who = ", ".join(x for x in (d.get("company_name"), d.get("primary_contact_name")) if x)
+    risk = " **at risk**" if d.get("at_risk_since") else ""
+    close = f", closes {_when(d['expected_close_date'])}" if d.get("expected_close_date") else ""
+    return (f"- **{d['name']}** (`{d['id']}`): {_money(d.get('amount'), d.get('currency'))}, {d.get('stage_name') or d['status']}"
+            f"{close}{' - ' + who if who else ''}{risk}")
+
+
+def format_company(m: dict) -> str:
+    c = m["company"]
+    lines = [f"# {c['name']}", ""]
+    for label, key in (("Domain", "domain"), ("Website", "website"), ("Industry", "industry"), ("Size", "size"),
+                       ("Country", "country_name"), ("Description", "description")):
+        if c.get(key):
+            lines.append(f"- {label}: {c[key]}")
+    if c.get("tags"):
+        lines.append("- Tags: " + ", ".join(c["tags"]))
+    lines += ["", f"## Contacts ({c.get('contact_count', 0)})"]
+    lines += [f"- {_name(p)} (`{p['id']}`){', ' + p['job_title'] if p.get('job_title') else ''}, "
+              f"last seen {_when(p.get('last_seen_at'))}" for p in (c.get("contacts") or [])] or ["- None"]
+    lines += ["", "## Open deals"] + ([_deal_line(d) for d in m["deals"]] or ["- None"])
+    if m["suggestions"]:
+        lines += ["", "## Pending deal suggestions"] + [_suggestion_line(s) for s in m["suggestions"]]
+    return "\n".join(lines)
+
+
+def format_deals(data: dict) -> str:
+    deals = data.get("deals", [])
+    if not deals:
+        return "No matching deals."
+    return "\n".join([f"# Deals ({data.get('total', len(deals))})", ""] + [_deal_line(d) for d in deals])
+
+
+def format_deal(m: dict) -> str:
+    d = m["deal"]
+    lines = [f"# {d['name']}", "",
+             f"- Value: {_money(d.get('amount'), d.get('currency'))}",
+             f"- Stage: {d.get('stage_name')} ({d['status']}"
+             + (f", {d.get('probability')}% win probability)" if d["status"] == "open" else ")"),
+             f"- Expected close: {_when(d.get('expected_close_date'))}"]
+    if d.get("company_id"):
+        lines.append(f"- Company: {d.get('company_name')} (`{d['company_id']}`)")
+    for p in d.get("contacts") or []:
+        main = " (main contact)" if p["contact_id"] == d.get("primary_contact_id") else ""
+        lines.append(f"- Person: {p.get('name') or p.get('email')} (`{p['contact_id']}`), {p['role'].replace('_', ' ')}{main}")
+    if d.get("at_risk_since"):
+        lines.append(f"- **At risk** since {_when(d['at_risk_since'])}: \"{d.get('at_risk_reason') or ''}\"")
+    if d["status"] == "lost" and d.get("lost_reason"):
+        lines.append(f"- Lost because: {d['lost_reason']}")
+    lines.append(f"- Source: {d.get('source')}, created {_when(d.get('created_at'))}")
+    if m["timeline"]:
+        lines += ["", "## Recent history"]
+        lines += [f"- {_when(e.get('created_at'))} {e.get('entry_type')}: {(e.get('content') or e.get('type') or '')[:200]}"
+                  for e in m["timeline"]]
+    return "\n".join(lines)
+
+
+def format_pipeline_summary(m: dict) -> str:
+    s = m["summary"]
+    lines = ["# Pipeline summary", "", "## Pipelines"]
+    for p in m["pipelines"]:
+        stages = " > ".join(f"{st['name']} ({st['probability']}%)" if st["kind"] == "open" else st["name"]
+                            for st in p["stages"])
+        lines.append(f"- {p['name']}{' (default)' if p.get('is_default') else ''} `{p['id']}`: {stages}")
+    lines += ["", "## Open deals by stage"]
+    lines += [f"- {r['stage_name']}: {r['count']} deal(s), {_money(r['amount'], r['currency']) if r.get('currency') else 'no amount'}"
+              for r in s["open_by_stage"]] or ["- None"]
+    lines += ["", "## Forecast by close month (weighted = amount x stage probability)"]
+    lines += [f"- {f['month']}: {f['count']} deal(s), {_money(f['amount'], f['currency'])}, weighted {_money(f['weighted'], f['currency'])}"
+              for f in s["forecast"]] or ["- No open deals with a close date and amount"]
+    rate = f"{round(s['win_rate'] * 100)}%" if s.get("win_rate") is not None else "n/a"
+    cycle = f"{s['avg_cycle_days']} days" if s.get("avg_cycle_days") is not None else "n/a"
+    lines += ["", f"## Last {s['period_days']} days",
+              f"- Won {s['won']}, lost {s['lost']}, win rate {rate}, average time to win {cycle}",
+              f"- Won value: {_totals(s.get('won_value') or {})}",
+              "", f"## Past their close date ({s['overdue_count']})"]
+    lines += [_deal_line(d) for d in s["overdue"]] or ["- None"]
+    return "\n".join(lines)
+
+
+def _suggestion_line(s: dict) -> str:
+    what = {"new_deal": f"new deal \"{s['title']}\"",
+            "advance": f"move {s.get('deal_name')} to {s.get('suggested_stage_name') or 'the next stage'}",
+            "at_risk": f"{s.get('deal_name')} at risk"}.get(s["kind"], s["kind"])
+    money = f" ({_money(s['amount'], s['currency'])})" if s.get("amount") else ""
+    return (f"- {what}{money} for {s.get('contact_name') or 'a contact'}: \"{s['evidence']}\" "
+            f"[{s['status']}, {_when(s.get('created_at'))}] `{s['id']}`")
+
+
+def format_deal_suggestions(items: list) -> str:
+    if not items:
+        return "No deal suggestions."
+    return "\n".join([f"# Deal suggestions ({len(items)})", ""] + [_suggestion_line(s) for s in items])
