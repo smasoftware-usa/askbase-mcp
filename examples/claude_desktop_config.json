@@ -2,10 +2,13 @@
   "mcpServers": {
     "askbase": {
       "command": "uvx",
-      "args": ["askbase-mcp"],
+      "args": [
+        "--from",
+        "git+https://github.com/smasoftware-usa/askbase-mcp",
+        "askbase-mcp"
+      ],
       "env": {
-        "ASK_API_KEY": "ask_live_your_api_key_here",
-        "ASK_API_BASE_URL": "https://api.askbase.com"
+        "ASK_API_KEY": "ask_live_your_key_here"
       }
     }
   }

@@ -1,146 +1,116 @@
-# ASKbase MCP Server
+# AskBase MCP server and Claude Code plugin
 
-MCP (Model Context Protocol) server for [ASK-base](https://askbase.com) RAG API. Enables AI assistants like Claude Desktop, Cursor, and Claude Code to search and manage your knowledge base.
+Connect AI assistants to your [AskBase](https://askbase.co) project: search and grow your knowledge base, see what customers asked that your assistant couldn't answer, brief yourself on a customer, and test your assistant's answers.
 
-## Features
+This repository contains:
 
-- **Semantic Search** - Query your knowledge base using natural language
-- **Collection Management** - List, create, and inspect document collections
-- **Document Management** - View documents and their chunks
-- **Content Ingestion** - Add URLs and websites to your knowledge base
+- **The AskBase plugin for Claude Code** (`plugin/`): the MCP server connection plus skills for common tasks.
+- **The AskBase MCP server** (`src/askbase_mcp/`): hosted by AskBase, or run locally.
 
-## Installation
+## Claude Code plugin (recommended)
 
-### Using uvx (recommended)
-
-```bash
-uvx askbase-mcp
+```
+/plugin marketplace add smasoftware-usa/askbase-mcp
+/plugin install askbase@askbase
 ```
 
-### Using pip
+Create an API key in the AskBase portal (**API Keys**, with the `read` and `write` scopes) and set it before starting Claude Code:
 
 ```bash
-pip install askbase-mcp
+export ASKBASE_API_KEY="ask_live_..."
 ```
 
-## Configuration
+Then run `/askbase:setup`. See [plugin/README.md](plugin/README.md) for the skills.
 
-Set your ASK-base API key as an environment variable:
+## Hosted MCP server (other clients)
+
+Any MCP client that supports streamable HTTP can connect directly:
+
+- **URL:** `https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp`
+- **Header:** `X-API-Key: <your AskBase API key>` (or `Authorization: Bearer <key>`)
+
+Claude Code without the plugin:
 
 ```bash
-export ASK_API_KEY="ask_live_your_api_key_here"
+claude mcp add --transport http askbase https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp \
+  --header "X-API-Key: $ASKBASE_API_KEY"
 ```
 
-### Optional Configuration
+Cursor (`.cursor/mcp.json`):
 
-```bash
-# API base URL (default: https://api.askbase.com)
-export ASK_API_BASE_URL="https://api.askbase.com"
-
-# Default collection for searches
-export ASK_DEFAULT_COLLECTION_ID="your-collection-uuid"
-
-# Default number of results (default: 5)
-export ASK_DEFAULT_TOP_K=10
-
-# Default similarity threshold (default: 0.7)
-export ASK_DEFAULT_SIMILARITY_THRESHOLD=0.75
+```json
+{
+  "mcpServers": {
+    "askbase": {
+      "url": "https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp",
+      "headers": { "X-API-Key": "ask_live_your_key_here" }
+    }
+  }
+}
 ```
 
-## Usage with AI Assistants
+The server is stateless: every request uses only the API key it carries. It stores no keys and keeps no sessions.
 
-### Claude Desktop
+## Local server (stdio)
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Run the server on your own machine (Python 3.10+, [uv](https://docs.astral.sh/uv/)):
 
 ```json
 {
   "mcpServers": {
     "askbase": {
       "command": "uvx",
-      "args": ["askbase-mcp"],
-      "env": {
-        "ASK_API_KEY": "ask_live_your_api_key_here"
-      }
+      "args": ["--from", "git+https://github.com/smasoftware-usa/askbase-mcp", "askbase-mcp"],
+      "env": { "ASK_API_KEY": "ask_live_your_key_here" }
     }
   }
 }
 ```
 
-### Cursor
+Optional settings (environment variables):
 
-Add to your Cursor MCP configuration (`.cursor/mcp.json`):
+| Variable | Default | Meaning |
+|---|---|---|
+| `ASK_API_BASE_URL` | `https://api.askbase.co` | AskBase API |
+| `ASK_DEFAULT_TOP_K` | `5` | Search results per query |
+| `ASK_DEFAULT_SIMILARITY_THRESHOLD` | `0.2` | Minimum similarity for search results |
 
-```json
-{
-  "mcpServers": {
-    "askbase": {
-      "command": "uvx",
-      "args": ["askbase-mcp"],
-      "env": {
-        "ASK_API_KEY": "ask_live_your_api_key_here"
-      }
-    }
-  }
-}
-```
+## Tools
 
-### Claude Code CLI
+| Area | Tools |
+|---|---|
+| Knowledge base | `search`, `list_knowledge_bases`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `publish_documents`, `create_collection` |
+| Insights | `list_unanswered_questions`, `get_unanswered_question`, `suggest_answer`, `list_failed_lookups` |
+| CRM | `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item` |
+| Assistant | `ask_assistant` |
 
-```bash
-claude mcp add askbase -- uvx askbase-mcp
-```
+New documents start as **drafts** and aren't searchable or used by your assistant until published (`publish_documents`). CRM tools need CRM turned on for the project. `ask_assistant` runs your live assistant, so it uses your model's tokens.
 
-## Available Tools
+## API key scopes
 
-| Tool | Description |
-|------|-------------|
-| `search` | Semantic search over your knowledge base |
-| `list_collections` | List all document collections |
-| `get_collection_stats` | Get collection statistics (docs, chunks, tokens) |
-| `list_documents` | List documents in a collection |
-| `get_document` | Get document details |
-| `get_document_chunks` | Get document text chunks |
-| `ingest_url` | Scrape and ingest a URL |
-| `create_document` | Create a text document |
-| `create_collection` | Create a new collection |
-| `ingest_website` | Crawl and ingest a website |
-
-## Example Interactions
-
-Once configured, you can ask your AI assistant:
-
-- "Search my knowledge base for return policies"
-- "List all my document collections"
-- "Show me the stats for the support-docs collection"
-- "Add this URL to my FAQ collection: https://example.com/help"
-- "What documents are in the product-info collection?"
+| Scope | Needed for |
+|---|---|
+| any valid key | search; reading collections, documents, insights and CRM; ingesting pages and text |
+| `write` | creating collections, publishing documents |
 
 ## Development
 
 ```bash
-# Clone the repository
 git clone https://github.com/smasoftware-usa/askbase-mcp.git
 cd askbase-mcp
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest
+uv venv && uv pip install -e ".[dev]"
+.venv/bin/pytest
 ```
 
-## Getting an API Key
+- `src/askbase_mcp/tools.py`: every tool, shared by both transports.
+- `src/askbase_mcp/http_server.py`: the hosted server (`uvicorn askbase_mcp.http_server:app`).
+- `src/askbase_mcp/server.py`: the local stdio server (`askbase-mcp`).
+- `plugin/`: the Claude Code plugin; `.claude-plugin/marketplace.json` lists it. Validate with `claude plugin validate ./plugin`.
 
-1. Sign up at [ASK-base](https://askbase.com)
-2. Navigate to your dashboard
-3. Create an API key (format: `ask_live_xxx`)
+## Security
+
+Please report vulnerabilities privately through GitHub's **Security → Report a vulnerability** on this repository, not in a public issue. Your API key is sent only to the AskBase MCP server and API, and is used only for your own requests.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
-
-## Support
-
-- [GitHub Issues](https://github.com/smasoftware-usa/askbase-mcp/issues)
-- [ASK-base Documentation](https://docs.askbase.com)
+MIT. See [LICENSE](LICENSE).
