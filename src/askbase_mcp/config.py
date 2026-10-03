@@ -48,7 +48,7 @@ class Settings(BaseSettings):
 
     # Server metadata
     server_name: str = "askbase-mcp"
-    server_version: str = "2.0.0"
+    server_version: str = "2.1.0"
 
     @field_validator("api_key")
     @classmethod

@@ -81,7 +81,8 @@ Optional settings (environment variables):
 |---|---|
 | Knowledge base | `search`, `list_knowledge_bases`, `list_collections`, `get_collection_stats`, `list_documents`, `get_document`, `get_document_chunks`, `ingest_url`, `ingest_website`, `create_document`, `publish_documents`, `create_collection` |
 | Insights | `list_unanswered_questions`, `get_unanswered_question`, `suggest_answer`, `list_failed_lookups` |
-| CRM | `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item` |
+| CRM | `find_contacts`, `get_contact`, `get_contact_memory`, `list_open_items`, `update_open_item`, `find_companies`, `get_company` |
+| Deals | `list_deals`, `get_deal`, `deal_pipeline_summary`, `list_deal_suggestions`, `create_deal`, `move_deal`, `decide_deal_suggestion` |
 | Assistant | `ask_assistant` |
 
 New documents start as **drafts** and aren't searchable or used by your assistant until published (`publish_documents`). CRM tools need CRM turned on for the project. `ask_assistant` runs your live assistant, so it uses your model's tokens.

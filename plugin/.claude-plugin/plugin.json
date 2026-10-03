@@ -1,7 +1,7 @@
 {
   "name": "askbase",
-  "description": "Search, grow and check your AskBase knowledge base from Claude Code: answers with cited sources, content ingestion, health checks, gap filling, customer briefings, open-item triage and assistant testing.",
-  "version": "0.2.0",
+  "description": "Search, grow and check your AskBase knowledge base from Claude Code: answers with cited sources, content ingestion, health checks, gap filling, customer and company briefings, open-item triage, pipeline review and assistant testing.",
+  "version": "0.3.0",
   "author": {
     "name": "SMA Software"
   },

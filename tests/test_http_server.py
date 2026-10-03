@@ -34,10 +34,6 @@ def tool_text(response):
     return body["result"]["content"][0]["text"], body["result"].get("isError", False)
 
 
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        yield c
 
 
 def test_health(client):
@@ -61,6 +57,8 @@ def test_tools_list_has_no_ctx_parameter(client):
                      "get_document_chunks", "ingest_url", "ingest_website", "create_document", "create_collection",
                      "publish_documents", "list_knowledge_bases", "list_unanswered_questions", "get_unanswered_question", "suggest_answer", "list_failed_lookups",
                      "find_contacts", "get_contact", "get_contact_memory", "list_open_items", "update_open_item",
+                     "find_companies", "get_company", "list_deals", "get_deal", "deal_pipeline_summary",
+                     "list_deal_suggestions", "create_deal", "move_deal", "decide_deal_suggestion",
                      "ask_assistant"}
     for t in tools:
         assert "ctx" not in t["inputSchema"].get("properties", {}), t["name"]
