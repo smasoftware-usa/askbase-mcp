@@ -1,0 +1,5 @@
+# Test placeholder key ask_live_test123... (not a real key; checked against prod 2026-10-03)
+1542ed8aa07fce893c90728fabe0346215839878:tests/test_config.py:generic-api-key:12
+47d155a7020279b3ac63be392bfb807687c05ef1:tests/test_config.py:generic-api-key:10
+47d155a7020279b3ac63be392bfb807687c05ef1:tests/test_config.py:generic-api-key:13
+47d155a7020279b3ac63be392bfb807687c05ef1:tests/test_config.py:generic-api-key:29

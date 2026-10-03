@@ -1,11 +1,9 @@
 {
   "mcpServers": {
     "askbase": {
-      "command": "uvx",
-      "args": ["askbase-mcp"],
-      "env": {
-        "ASK_API_KEY": "ask_live_your_api_key_here",
-        "ASK_API_BASE_URL": "https://api.askbase.com"
+      "url": "https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp",
+      "headers": {
+        "X-API-Key": "ask_live_your_key_here"
       }
     }
   }

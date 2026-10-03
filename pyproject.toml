@@ -43,10 +43,10 @@ dev = [
 askbase-mcp = "askbase_mcp.server:main"
 
 [project.urls]
-Homepage = "https://github.com/smasoftware/askbase-mcp"
-Documentation = "https://github.com/smasoftware/askbase-mcp#readme"
-Repository = "https://github.com/smasoftware/askbase-mcp"
-Issues = "https://github.com/smasoftware/askbase-mcp/issues"
+Homepage = "https://github.com/smasoftware-usa/askbase-mcp"
+Documentation = "https://github.com/smasoftware-usa/askbase-mcp#readme"
+Repository = "https://github.com/smasoftware-usa/askbase-mcp"
+Issues = "https://github.com/smasoftware-usa/askbase-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/askbase_mcp"]
