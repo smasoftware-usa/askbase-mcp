@@ -2,7 +2,7 @@
   "mcpServers": {
     "askbase": {
       "type": "http",
-      "url": "https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp",
+      "url": "https://mcp.askbase.co/mcp",
       "headers": {
         "X-API-Key": "${ASKBASE_API_KEY}"
       }
