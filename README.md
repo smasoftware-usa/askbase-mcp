@@ -26,13 +26,13 @@ Then run `/askbase:setup`. See [plugin/README.md](plugin/README.md) for the skil
 
 Any MCP client that supports streamable HTTP can connect directly:
 
-- **URL:** `https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp`
+- **URL:** `https://mcp.askbase.co/mcp`
 - **Header:** `X-API-Key: <your AskBase API key>` (or `Authorization: Bearer <key>`)
 
 Claude Code without the plugin:
 
 ```bash
-claude mcp add --transport http askbase https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp \
+claude mcp add --transport http askbase https://mcp.askbase.co/mcp \
   --header "X-API-Key: $ASKBASE_API_KEY"
 ```
 
@@ -42,7 +42,7 @@ Cursor (`.cursor/mcp.json`):
 {
   "mcpServers": {
     "askbase": {
-      "url": "https://askbase-mcp-ouyncrohja-uc.a.run.app/mcp",
+      "url": "https://mcp.askbase.co/mcp",
       "headers": { "X-API-Key": "ask_live_your_key_here" }
     }
   }
