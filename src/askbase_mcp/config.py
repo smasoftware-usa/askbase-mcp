@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # API connection
     api_base_url: str = Field(
-        default="https://api.askbase.co",
+        default="https://api.getnuvvi.ai",
         description="ASK-base API base URL",
     )
 
