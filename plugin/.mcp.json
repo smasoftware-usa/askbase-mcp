@@ -2,7 +2,7 @@
   "mcpServers": {
     "askbase": {
       "type": "http",
-      "url": "https://mcp.askbase.co/mcp",
+      "url": "https://mcp.getnuvvi.ai/mcp",
       "headers": {
         "X-API-Key": "${ASKBASE_API_KEY}"
       }

@@ -1,6 +1,6 @@
 # AskBase plugin for Claude Code
 
-Search, grow and check your [AskBase](https://askbase.co) knowledge base from Claude Code. The plugin connects to the hosted AskBase MCP server with your own API key and adds skills for common tasks.
+Search, grow and check your [Nuvvi](https://getnuvvi.ai) knowledge base from Claude Code. The plugin connects to the hosted AskBase MCP server with your own API key and adds skills for common tasks.
 
 ## Install
 

@@ -35,7 +35,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'ASK_API_BASE_URL=https://api.askbase.co'
+      - 'ASK_API_BASE_URL=https://api.getnuvvi.ai'
       # No Google Cloud permissions needed: it only calls the AskBase API with
       # the caller's key.
       - '--service-account'

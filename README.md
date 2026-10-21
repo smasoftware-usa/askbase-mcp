@@ -1,6 +1,6 @@
 # AskBase MCP server and Claude Code plugin
 
-Connect AI assistants to your [AskBase](https://askbase.co) project: search and grow your knowledge base, see what customers asked that your assistant couldn't answer, brief yourself on a customer, and test your assistant's answers.
+Connect AI assistants to your [Nuvvi](https://getnuvvi.ai) project: search and grow your knowledge base, see what customers asked that your assistant couldn't answer, brief yourself on a customer, and test your assistant's answers.
 
 This repository contains:
 
@@ -26,13 +26,13 @@ Then run `/askbase:setup`. See [plugin/README.md](plugin/README.md) for the skil
 
 Any MCP client that supports streamable HTTP can connect directly:
 
-- **URL:** `https://mcp.askbase.co/mcp`
+- **URL:** `https://mcp.getnuvvi.ai/mcp`
 - **Header:** `X-API-Key: <your AskBase API key>` (or `Authorization: Bearer <key>`)
 
 Claude Code without the plugin:
 
 ```bash
-claude mcp add --transport http askbase https://mcp.askbase.co/mcp \
+claude mcp add --transport http askbase https://mcp.getnuvvi.ai/mcp \
   --header "X-API-Key: $ASKBASE_API_KEY"
 ```
 
@@ -42,7 +42,7 @@ Cursor (`.cursor/mcp.json`):
 {
   "mcpServers": {
     "askbase": {
-      "url": "https://mcp.askbase.co/mcp",
+      "url": "https://mcp.getnuvvi.ai/mcp",
       "headers": { "X-API-Key": "ask_live_your_key_here" }
     }
   }
@@ -71,7 +71,7 @@ Optional settings (environment variables):
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ASK_API_BASE_URL` | `https://api.askbase.co` | AskBase API |
+| `ASK_API_BASE_URL` | `https://api.getnuvvi.ai` | AskBase API |
 | `ASK_DEFAULT_TOP_K` | `5` | Search results per query |
 | `ASK_DEFAULT_SIMILARITY_THRESHOLD` | `0.2` | Minimum similarity for search results |
 
